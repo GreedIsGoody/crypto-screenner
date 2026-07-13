@@ -9,14 +9,14 @@ from src.models import Coin, CoinPrice
 async def fetch_and_save_prices():
     while True:
         try:
-            # 1. Открываем сессию к базе данных
+            
             async with async_session() as session:
-                # Получаем все монеты, которые мы хотим отслеживать
+               
                 result = await session.execute(select(Coin))
                 coins = result.scalars().all()
                 
                 if not coins:
-                    print("[Background Task] В базе данных пока нет монет для отслеживания.")
+                    print("[Background Task] In database don`t have a token")
                 else:
                     coin_ids = [coin.coingecko_id for coin in coins]
                     

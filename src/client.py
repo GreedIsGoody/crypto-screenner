@@ -10,7 +10,7 @@ class CoinGeckoClient:
             "accept": "application/json"
         }
     async def get_coin_prices(self, coin_ids: list[str]) -> dict:
-        ids_param = ','.joni(coin_ids)
+        ids_param = ','.join(coin_ids)
         url = f"{self.base_url}/simple/price"
         
         params = {
