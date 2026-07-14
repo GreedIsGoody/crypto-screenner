@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy  import String, ForeignKey, Numeric, func
+from sqlalchemy  import String, ForeignKey, Numeric, func, Column, Float, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
 
@@ -27,3 +27,16 @@ class CoinPrice(Base):
     price_usd: Mapped[float] = mapped_column(Numeric(precision=16, scale=4), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
     coin: Mapped["Coin"] = relationship(back_populates="prices")
+    
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    coin_id = Column(Integer, ForeignKey("coins.id", ondelete="CASCADE"), nullable=False)
+    ticker = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    purchase_price_usd = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    coin = relationship("Coin")
