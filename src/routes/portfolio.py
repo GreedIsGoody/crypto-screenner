@@ -8,7 +8,7 @@ from typing import List
 from src.database import get_db 
 from src.models import Coin, CoinPrice, Transaction
 
-router = APIRouter("/portfolio", tags=["Portfolio"])
+router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
 
 class TransactionsCreate(BaseModel):
     ticker: str
@@ -66,7 +66,7 @@ async def add_transaction(data: TransactionsCreate, db:AsyncSession = Depends(ge
     await db.refresh(new_transaction)
     return new_transaction
 
-@router.get("/transactions", response_model=List[Transaction])
+@router.get("/transactions", response_model=List[TransactionResponse])
 async def get_transactions(db: AsyncSession = Depends(get_db)):
     stmt = select(Transaction).order_by(Transaction.created_at.desc())
     result = await db.execute(stmt)
