@@ -76,13 +76,13 @@ async def get_transactions(db: AsyncSession = Depends(get_db)):
 
 @router.get("/status", response_model=PortfolioStatusResponse)
 async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
-    # 1. Получаем все транзакции
+    
     tx_stmt = select(Transaction)
     tx_result = await db.execute(tx_stmt)
     transactions = tx_result.scalars().all()
     
     if not transactions:
-        # Возвращаем обычный словарь вместо инстанса класса
+        
         return {
             "total_cost": 0.0,
             "current_value": 0.0,
@@ -91,7 +91,7 @@ async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
             "assets": []
         }
     
-    # 2. Группируем транзакции по тикерам
+    
     portfolio = {}
     for tx in transactions:
         ticker = tx.ticker
@@ -101,7 +101,7 @@ async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
         portfolio[ticker]["amount"] += tx.amount
         portfolio[ticker]["total_cost"] += tx.amount * tx.purchase_price_usd
 
-    # 3. Считаем актуальную стоимость и профит по каждой монете
+    
     assets = []
     total_cost_sum = 0.0
     total_current_value_sum = 0.0
@@ -110,7 +110,7 @@ async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
         if info["amount"] <= 0:
             continue
         
-        # Получаем самую последнюю цену из таблицы coin_prices
+       
         price_stmt = (
             select(CoinPrice)
             .join(Coin)
@@ -131,7 +131,7 @@ async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
         total_cost_sum += info["total_cost"]
         total_current_value_sum += coin_current_value
         
-        # Здесь тоже собираем обычный словарь
+        
         assets.append({
             "ticker": ticker,
             "amount": info["amount"],
@@ -145,7 +145,6 @@ async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
     total_profit_usd = total_current_value_sum - total_cost_sum
     total_profit_percent = (total_profit_usd / total_cost_sum * 100) if total_cost_sum > 0 else 0.0
     
-    # Возвращаем итоговый словарь
     return {
         "total_cost": round(total_cost_sum, 2),
         "current_value": round(total_current_value_sum, 2),
