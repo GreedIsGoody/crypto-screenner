@@ -76,75 +76,80 @@ async def get_transactions(db: AsyncSession = Depends(get_db)):
 
 @router.get("/status", response_model=PortfolioStatusResponse)
 async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
-    #Recieving all transactions
+    # 1. Получаем все транзакции
     tx_stmt = select(Transaction)
     tx_result = await db.execute(tx_stmt)
     transactions = tx_result.scalars().all()
     
     if not transactions:
-        return PortfolioStatusResponse(
-            total_cost = 0.0,
-            current_value = 0.0,
-            total_profit_usd=0.0,
-            total_profit_percent=0.0,
-            assets = []
-        )
+        # Возвращаем обычный словарь вместо инстанса класса
+        return {
+            "total_cost": 0.0,
+            "current_value": 0.0,
+            "total_profit_usd": 0.0,
+            "total_profit_percent": 0.0,
+            "assets": []
+        }
     
-    #Group transactions by ticker
+    # 2. Группируем транзакции по тикерам
     portfolio = {}
     for tx in transactions:
         ticker = tx.ticker
         if ticker not in portfolio:
-            portfolio[ticker] = {"amount" : 0.0, "total_cost" : 0.0}
+            portfolio[ticker] = {"amount": 0.0, "total_cost": 0.0}
         
         portfolio[ticker]["amount"] += tx.amount
         portfolio[ticker]["total_cost"] += tx.amount * tx.purchase_price_usd
-        
-        
+
+    # 3. Считаем актуальную стоимость и профит по каждой монете
     assets = []
-    total_cost = 0.0
-    curret_value = 0.0
+    total_cost_sum = 0.0
+    total_current_value_sum = 0.0
     
     for ticker, info in portfolio.items():
         if info["amount"] <= 0:
             continue
         
-    price_stmt = (
-        select(CoinPrice)
-        .join(Coin)
-        .where(Coin.ticker == ticker)
-        .order_by(CoinPrice.timestamp.desc())
-        .limit(1)
-    )
-    price_result = await db.execute(price_stmt)
-    latest_price_obj = price_result.scalar_one_or_none()
+        # Получаем самую последнюю цену из таблицы coin_prices
+        price_stmt = (
+            select(CoinPrice)
+            .join(Coin)
+            .where(Coin.ticker == ticker)
+            .order_by(CoinPrice.timestamp.desc())
+            .limit(1)
+        )
+        price_result = await db.execute(price_stmt)
+        latest_price_obj = price_result.scalar_one_or_none()
+        
+        # Безопасно приводим к float
+        current_price = float(latest_price_obj.price_usd) if latest_price_obj else (info["total_cost"] / info["amount"])
+        
+        coin_current_value = info["amount"] * current_price
+        coin_profit_usd = coin_current_value - info["total_cost"]
+        coin_profit_percent = (coin_profit_usd / info["total_cost"] * 100) if info["total_cost"] > 0 else 0.0
+        
+        total_cost_sum += info["total_cost"]
+        total_current_value_sum += coin_current_value
+        
+        # Здесь тоже собираем обычный словарь
+        assets.append({
+            "ticker": ticker,
+            "amount": info["amount"],
+            "total_cost": round(info["total_cost"], 2),
+            "current_price": round(current_price, 4),
+            "current_value": round(coin_current_value, 2),
+            "profit_usd": round(coin_profit_usd, 2),
+            "profit_percent": round(coin_profit_percent, 2)
+        })
+        
+    total_profit_usd = total_current_value_sum - total_cost_sum
+    total_profit_percent = (total_profit_usd / total_cost_sum * 100) if total_cost_sum > 0 else 0.0
     
-    current_price = latest_price_obj.price_usd if latest_price_obj else (info["total_cost"] / info["amount"])
-    
-    coin_current_value = info["amount"] * current_price 
-    coin_profit_usd = coin_current_value - info["total_cost"]
-    coin_profit_percent = (coin_profit_usd / info["total_cost"] * 100) if info["total_cost"] > 0 else 0.0
-    
-    total_cost += info["total_cost"]
-    current_value += coin_current_value
-    
-    assets.append(CoinStatus(
-        ticker=ticker,
-        amount=info["amount"],
-        total_cost = round(info["total_cost"], 2),
-        current_price=round(current_price, 4),
-        current_value=round(coin_current_value, 2),
-        profit_usd=round(coin_profit_usd, 2),
-        profit_percent=round(coin_profit_percent, 2)
-    ))
-    
-    total_profit_usd = current_value - total_cost 
-    total_profit_percent = (total_profit_usd / total_cost * 100) if total_cost > 0 else 0.0
-    
-    return PortfolioStatusResponse(
-        total_cost=round(total_cost, 2),
-        current_value=round(current_value, 2),
-        total_profit_usd=round(total_profit_usd, 2),
-        total_profit_percent=round(total_profit_percent, 2),
-        assets=assets
-    )
+    # Возвращаем итоговый словарь
+    return {
+        "total_cost": round(total_cost_sum, 2),
+        "current_value": round(total_current_value_sum, 2),
+        "total_profit_usd": round(total_profit_usd, 2),
+        "total_profit_percent": round(total_profit_percent, 2),
+        "assets": assets
+    }
