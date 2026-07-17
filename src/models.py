@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy  import String, ForeignKey, Numeric, func, Column, Float, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
@@ -40,3 +40,17 @@ class Transaction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     coin = relationship("Coin")
+    
+class ExchangeRate(Base):
+    __tablename__ = "exchange_rate"
+    
+    id = Column(Integer,  primary_key=True, index=True)
+    
+    currency_code = Column(String(3), unique=True, nullable=False, index=True)
+    
+    rate_to_usd = Column(Float, nullable=True)
+    
+    update_at = Column(DateTime, default=datetime.now(timezone.utc))
+    
+    def __repr__(self):
+        return f"<ExchangeRate(currency_code='{self.currency_code}', rate={self.rate_to_usd})>"
