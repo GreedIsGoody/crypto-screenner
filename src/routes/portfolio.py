@@ -26,18 +26,20 @@ class TransactionResponse(BaseModel):
         from_attributes = True
         
 class CoinStatus(BaseModel):
+    ticker: str
+    amount: float
     total_cost: float
     current_value: float 
-    total_profit: float 
     current_price:float 
-    current_value: float
+    total_profit: float 
     profit_usd: float 
     profit_percent: float 
     
     
 class PortfolioStatusResponse(BaseModel):
     total_cost: float 
-    current_value: float 
+    current_value: float
+    total_profit_usd: float 
     total_profit_percent: float 
     assets: List[CoinStatus]
 
@@ -74,81 +76,90 @@ async def get_transactions(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.get("/status", response_model=PortfolioStatusResponse)
+@router.get("/status")
 async def get_portfolio_status(db: AsyncSession = Depends(get_db)):
-    
-    tx_stmt = select(Transaction)
-    tx_result = await db.execute(tx_stmt)
-    transactions = tx_result.scalars().all()
-    
-    if not transactions:
+    try:
+        
+        tx_stmt = select(Transaction)
+        tx_result = await db.execute(tx_stmt)
+        transactions = tx_result.scalars().all()
+        
+        if not transactions:
+            return {
+                "total_cost": 0.0,
+                "current_value": 0.0,
+                "total_profit_usd": 0.0,
+                "total_profit_percent": 0.0,
+                "assets": []
+            }
+        
+        
+        portfolio = {}
+        for tx in transactions:
+            ticker = tx.ticker
+            if ticker not in portfolio:
+                portfolio[ticker] = {"amount": 0.0, "total_cost": 0.0}
+            
+            portfolio[ticker]["amount"] += float(tx.amount)
+            portfolio[ticker]["total_cost"] += float(tx.amount) * float(tx.purchase_price_usd)
+
+        
+        assets = []
+        total_cost_sum = 0.0
+        total_current_value_sum = 0.0
+        
+        for ticker, info in portfolio.items():
+            if info["amount"] <= 0:
+                continue
+            
+            
+            price_stmt = (
+                select(CoinPrice)
+                .join(Coin)
+                .where(Coin.ticker == ticker)
+                .order_by(CoinPrice.timestamp.desc())
+                .limit(1)
+            )
+            price_result = await db.execute(price_stmt)
+            latest_price_obj = price_result.scalar_one_or_none()
+            
+            
+            if latest_price_obj and latest_price_obj.price_usd is not None:
+                current_price = float(latest_price_obj.price_usd)
+            else:
+                current_price = float(info["total_cost"] / info["amount"]) if info["amount"] > 0 else 0.0
+            
+            coin_current_value = float(info["amount"] * current_price)
+            coin_profit_usd = float(coin_current_value - info["total_cost"])
+            coin_profit_percent = float(coin_profit_usd / info["total_cost"] * 100) if info["total_cost"] > 0 else 0.0
+            
+            total_cost_sum += float(info["total_cost"])
+            total_current_value_sum += float(coin_current_value)
+            
+            assets.append({
+                "ticker": ticker,
+                "amount": float(info["amount"]),
+                "total_cost": round(float(info["total_cost"]), 2),
+                "current_price": round(float(current_price), 4),
+                "current_value": round(float(coin_current_value), 2),
+                "profit_usd": round(float(coin_profit_usd), 2),
+                "profit_percent": round(float(coin_profit_percent), 2)
+            })
+            
+        total_profit_usd = float(total_current_value_sum - total_cost_sum)
+        total_profit_percent = float(total_profit_usd / total_cost_sum * 100) if total_cost_sum > 0 else 0.0
         
         return {
-            "total_cost": 0.0,
-            "current_value": 0.0,
-            "total_profit_usd": 0.0,
-            "total_profit_percent": 0.0,
-            "assets": []
+            "total_cost": round(total_cost_sum, 2),
+            "current_value": round(total_current_value_sum, 2),
+            "total_profit_usd": round(total_profit_usd, 2),
+            "total_profit_percent": round(total_profit_percent, 2),
+            "assets": assets
         }
-    
-    
-    portfolio = {}
-    for tx in transactions:
-        ticker = tx.ticker
-        if ticker not in portfolio:
-            portfolio[ticker] = {"amount": 0.0, "total_cost": 0.0}
-        
-        portfolio[ticker]["amount"] += tx.amount
-        portfolio[ticker]["total_cost"] += tx.amount * tx.purchase_price_usd
 
-    
-    assets = []
-    total_cost_sum = 0.0
-    total_current_value_sum = 0.0
-    
-    for ticker, info in portfolio.items():
-        if info["amount"] <= 0:
-            continue
-        
-       
-        price_stmt = (
-            select(CoinPrice)
-            .join(Coin)
-            .where(Coin.ticker == ticker)
-            .order_by(CoinPrice.timestamp.desc())
-            .limit(1)
-        )
-        price_result = await db.execute(price_stmt)
-        latest_price_obj = price_result.scalar_one_or_none()
-        
-        # Безопасно приводим к float
-        current_price = float(latest_price_obj.price_usd) if latest_price_obj else (info["total_cost"] / info["amount"])
-        
-        coin_current_value = info["amount"] * current_price
-        coin_profit_usd = coin_current_value - info["total_cost"]
-        coin_profit_percent = (coin_profit_usd / info["total_cost"] * 100) if info["total_cost"] > 0 else 0.0
-        
-        total_cost_sum += info["total_cost"]
-        total_current_value_sum += coin_current_value
-        
-        
-        assets.append({
-            "ticker": ticker,
-            "amount": info["amount"],
-            "total_cost": round(info["total_cost"], 2),
-            "current_price": round(current_price, 4),
-            "current_value": round(coin_current_value, 2),
-            "profit_usd": round(coin_profit_usd, 2),
-            "profit_percent": round(coin_profit_percent, 2)
-        })
-        
-    total_profit_usd = total_current_value_sum - total_cost_sum
-    total_profit_percent = (total_profit_usd / total_cost_sum * 100) if total_cost_sum > 0 else 0.0
-    
-    return {
-        "total_cost": round(total_cost_sum, 2),
-        "current_value": round(total_current_value_sum, 2),
-        "total_profit_usd": round(total_profit_usd, 2),
-        "total_profit_percent": round(total_profit_percent, 2),
-        "assets": assets
-    }
+    except Exception as e:
+        import traceback
+        print("\n" + "="*50 + "\n🔥 DETECTED EXCEPTION INSIDE ENDPOINT:\n" + "="*50)
+        traceback.print_exc()  
+        print("="*50 + "\n")
+        raise e
