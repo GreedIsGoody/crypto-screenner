@@ -1,47 +1,71 @@
-# Crypto Screener & Portfolio Tracker
+Here is the complete, professionally polished README.md in English for your GitHub portfolio:
 
-An asynchronous FastAPI backend application designed to track real-time cryptocurrency prices and calculate the profit/loss (PnL) of an investment portfolio. 
+Crypto Screener Backend
+An asynchronous FastAPI backend application designed for tracking cryptocurrency exchange rates and managing investment portfolios. The project leverages background workers to periodically fetch live asset data from the CoinGecko API and stores historical and current price records in a PostgreSQL database.
 
-The application is architected as a pure, high-performance backend that utilizes asynchronous background workers to automatically fetch and update market rates in the database.
+🚀 Technology Stack
+Framework: FastAPI (Python 3.11)
 
-## 🚀 Key Features
+Database: PostgreSQL
 
-*   **Crypto Screener:** Add and manage custom watchlists of target cryptocurrencies.
-*   **Background Price Updates:** Background tasks periodically fetch and persist latest asset prices to a PostgreSQL database via external APIs.
-*   **Transaction Ledger:** Track transactions with essential data points (ticker, transaction amount, purchase price in USD).
-*   **Portfolio Analytics:** Calculate total portfolio cost, current market value, absolute profit/loss in USD, and percentage yield (PnL) on the fly.
+ORM: SQLAlchemy (Asyncio / asyncpg)
 
----
+Database Migrations: Alembic
 
-## 🛠 Tech Stack
+Containerization: Docker / Docker Compose
 
-*   **Language:** Python 3.11+
-*   **Framework:** FastAPI (Asynchronous)
-*   **Database:** PostgreSQL
-*   **ORM:** SQLAlchemy 2.0 (Async Engine & Session)
-*   **Data Validation:** Pydantic v2
-*   **Server:** Uvicorn with `uvloop` for high-throughput event looping
+Data Validation: Pydantic
 
----
+🛠 Project Structure & Architecture
+The project follows a clean, modular structure:
 
-## 📂 Project Structure
+Plaintext
+├── alembic/               # Database migration scripts managed by Alembic
+├── src/                   # Main application source code
+│   ├── routes/            # API endpoints (Routers)
+│   │   ├── coins.py       # Manage the list of tracked crypto tokens
+│   │   ├── exchange_rates.py # Fetch the latest exchange rates
+│   │   ├── portfolio.py   # Investment portfolio metrics and logic
+│   │   └── prices.py      # Historical token price tracking
+│   ├── client.py          # Asynchronous external API client for CoinGecko
+│   ├── config.py          # Application configuration and environment variable loading (.env)
+│   ├── database.py        # SQLAlchemy engine setup and async session factories
+│   ├── main.py            # Application entry point and lifespan state management
+│   ├── models.py          # SQLAlchemy ORM database models (Coin, CoinPrice, ExchangeRate)
+│   └── tasks.py           # Background workers and periodic cron tasks
+├── .env                   # Local environment configuration file
+├── alembic.ini            # Alembic configuration configuration
+├── Dockerfile             # Multi-stage Docker build specification for the app
+├── docker-compose.yml     # Container orchestration (FastAPI application + PostgreSQL)
+└── requirements.txt       # Hardcoded python package dependencies list
 
-```text
-This  structure was made, just because a project is not too big, and we can contain logic in module architechture
-crypto-screener/
-├── src/
-│   ├── routes/
-│   │   ├── coins.py       # Endpoints for managing the watchlists
-│   │   ├── prices.py      # Endpoints for retrieving asset prices
-│   │   └── portfolio.py   # Transaction management and PnL calculation
-│   ├── client.py          # API client for external crypto market data
-│   ├── config.py          # Application settings & environment variables (.env)
-│   ├── database.py        # SQLAlchemy async engine & session initialization
-│   ├── main.py            # FastAPI application entry point
-│   ├── models.py          # Declarative SQLAlchemy models (Coin, CoinPrice, Transaction)
-│   └── tasks.py           # Background workers for regular price updates
-├── .env                   # Local configuration file (ignored by Git)
-├── .gitignore
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
+
+⚡ Getting Started
+1. Configure the Environment
+Create a .env file in the root directory of the project and specify your database connection details (configured for the internal Docker network setup below):
+
+DATABASE_URL= YOUR URL
+2. Launch with Docker Compose
+Build and run all services (FastAPI app and PostgreSQL instance) in detached mode with a single command:
+
+Bash
+docker-compose up -d --build
+3. Run Database Migrations
+Once the database container is healthy and accepting connections, apply your Alembic migrations to generate the schema:
+
+Bash
+alembic upgrade head
+The server will be up and running at http://localhost:8001 (or http://localhost:8000 depending on your mapped compose ports).
+
+Interactive API Documentation (Swagger UI): http://localhost:8001/docs
+
+🔄 Automated Background Tasks
+The application includes an active background worker that automatically manages state updates:
+
+Queries the active token watchlists from the coins table.
+
+Dispatches periodic requests to the external CoinGecko API for up-to-date USD valuations.
+
+appends historical snapshots into the coin_prices table.
+
+Updates current market rates inside the exchange_rates table securely using an atomic ON CONFLICT (...) DO UPDATE (Upsert) operation.
