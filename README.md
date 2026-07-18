@@ -27,6 +27,7 @@ The application is architected as a pure, high-performance backend that utilizes
 ## 📂 Project Structure
 
 ```text
+This  structure was made, just because a project is not too big, and we can contain logic in module architechture
 crypto-screener/
 ├── src/
 │   ├── routes/

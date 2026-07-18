@@ -42,15 +42,17 @@ class Transaction(Base):
     coin = relationship("Coin")
     
 class ExchangeRate(Base):
-    __tablename__ = "exchange_rate"
+    __tablename__ = "exchange_rates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    currency_code: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    rate_to_usd: Mapped[float] = mapped_column(Float, nullable=False)
     
-    id = Column(Integer,  primary_key=True, index=True)
-    
-    currency_code = Column(String(3), unique=True, nullable=False, index=True)
-    
-    rate_to_usd = Column(Float, nullable=True)
-    
-    update_at = Column(DateTime, default=datetime.now(timezone.utc))
+    update_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc), 
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
     
     def __repr__(self):
         return f"<ExchangeRate(currency_code='{self.currency_code}', rate={self.rate_to_usd})>"
