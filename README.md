@@ -1,5 +1,3 @@
-Here is the complete, professionally polished README.md in English for your GitHub portfolio:
-
 Crypto Screener Backend
 An asynchronous FastAPI backend application designed for tracking cryptocurrency exchange rates and managing investment portfolios. The project leverages background workers to periodically fetch live asset data from the CoinGecko API and stores historical and current price records in a PostgreSQL database.
 
